@@ -2,14 +2,14 @@ from transformers import pipeline
 import openai
 
 # Initialize the Malay to English translation pipeline
-translator = pipeline("translation", model="Helsinki-NLP/opus-mt-msa-en")
+# translator = pipeline("translation", model="Helsinki-NLP/opus-mt-msa-en")
 
 # Initialize OpenAI (make sure to set your API key in the environment variables)
 openai.api_key = "your-openai-api-key"  # Replace with your actual API key
 
 def translate_malay_to_english(malay_text):
-    translation = translator(malay_text)[0]['translation_text']
-    return translation
+    # translation = translator(malay_text)[0]['translation_text']
+    return 
 
 def generate_sql_query(english_query, schema):
     prompt = f"""

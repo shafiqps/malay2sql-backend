@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from database import get_db
 from models.user import UserDB, UserUpdate, UserResponse
 from routers.auth import oauth2_scheme, jwt, SECRET_KEY, ALGORITHM
+from jose import JWTError 
 
 router = APIRouter(prefix="/users", tags=["users"])
 
