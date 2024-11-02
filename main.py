@@ -1,8 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from routers import auth, users, malay2sql
+from database import create_tables
 
 app = FastAPI(title="MalaySQL Backend")
+
+# Create database tables at startup
+create_tables()
 
 # Configure CORS
 app.add_middleware(
