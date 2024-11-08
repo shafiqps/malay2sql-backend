@@ -1,15 +1,42 @@
-from transformers import pipeline
+from transformers import AutoTokenizer, T5ForConditionalGeneration
+import torch
 import openai
 
-# Initialize the Malay to English translation pipeline
-# translator = pipeline("translation", model="Helsinki-NLP/opus-mt-msa-en")
+# Check GPU availability
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f"Using device: {device}")
 
-# Initialize OpenAI (make sure to set your API key in the environment variables)
-openai.api_key = "your-openai-api-key"  # Replace with your actual API key
+# Initialize the Malay to English translation model
+print("Loading model and tokenizer...")
+tokenizer = AutoTokenizer.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2')
+model = T5ForConditionalGeneration.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2')
+model = model.to(device)  # Move model to GPU if available
+print(f"Model loaded. Number of parameters: {model.num_parameters():,}")
 
 def translate_malay_to_english(malay_text):
-    # translation = translator(malay_text)[0]['translation_text']
-    return 
+    # Add the translation prefix and prepare input
+    prefix = 'terjemah ke Inggeris: '
+    input_text = f"{prefix}{malay_text}"
+    input_ids = tokenizer.encode(input_text + tokenizer.eos_token, return_tensors='pt')
+    input_ids = input_ids.to(device)  # Move input to GPU if available
+    
+    # Generate translation
+    with torch.no_grad():  # Disable gradient calculation for inference
+        outputs = model.generate(
+            input_ids,
+            max_length=1024,
+            top_p=0.95,
+            top_k=50,
+            temperature=0.7,
+            do_sample=True
+        )
+    
+    # Remove special tokens and decode
+    all_special_ids = [0, 1, 2]  # Special token IDs to remove
+    outputs = [i for i in outputs[0] if i not in all_special_ids]
+    translation = tokenizer.decode(outputs, spaces_between_special_tokens=False).strip()
+    
+    return translation
 
 def generate_sql_query(english_query, schema):
     prompt = f"""
