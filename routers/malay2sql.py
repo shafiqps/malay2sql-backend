@@ -3,7 +3,7 @@ from typing import Dict, Any
 from services.malay2sql_service import Malay2SQLService, QueryResult
 from dependencies import get_malay2sql_service
 from pydantic import BaseModel
-from auth import get_current_user
+from routers.auth import get_current_user
 from models.user import UserDB
 
 router = APIRouter(

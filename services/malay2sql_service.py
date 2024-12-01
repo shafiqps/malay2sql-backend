@@ -150,29 +150,34 @@ class Malay2SQLService:
         
         prompt = f"""Given the following database schema and relevant columns:
 
-Schema:
-{schema}
+    Schema:
+    {schema}
 
-Relevant columns for this query:
-{columns_context}
+    Relevant columns for this query:
+    {columns_context}
 
-Generate an SQL query for the following request:
-{english_query}
+    Generate an SQL query for the following request:
+    {english_query}
 
-Return only the SQL query without any explanation.
-"""
+    Return only the raw SQL query without markdown formatting or backticks.
+    """
         
-        response = await openai.ChatCompletion.acreate(
-            model="gpt-4-turbo-preview",
+        client = openai.OpenAI(api_key=self.openai_api_key)
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
             messages=[
-                {"role": "system", "content": "You are a SQL expert. Generate precise SQL queries focusing on the relevant columns provided."},
+                {"role": "system", "content": "You are a SQL expert. Generate precise SQL queries focusing on the relevant columns provided. Return only the raw SQL query without markdown formatting or backticks."},
                 {"role": "user", "content": prompt}
             ],
             temperature=0.1,
             max_tokens=500
         )
         
-        return response.choices[0].message.content.strip()
+        sql_query = response.choices[0].message.content
+        # Strip markdown formatting if present
+        sql_query = sql_query.replace('```sql\n', '').replace('\n```', '').strip()
+        
+        return sql_query
 
     async def process_query(self, malay_query: str) -> QueryResult:
         """Process a Malay query end-to-end"""
@@ -239,6 +244,11 @@ Return only the SQL query without any explanation.
             comment = info["description"].replace("'", "''")
             columns.append(f"{col_name} {data_type} COMMENT '{comment}'")
             
-        return f"""CREATE TABLE {schema_json["table_name"]} (
-            {',\n            '.join(columns)}
-        );"""
+        columns_str = ',\n    '.join(columns)
+        create_statement = (
+            f"CREATE TABLE {schema_json['table_name']} (\n"
+            f"    {columns_str}\n"
+            f");"
+        )
+        
+        return create_statement
