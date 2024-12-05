@@ -26,6 +26,7 @@ async def initialize_schema(
     """Initialize the schema for the Malay2SQL service"""
     try:
         service.initialize_schema(schema_input.schema)
+        print(f"Schema initialized for user schema_json: {service.schema_json}")
         return {"message": "Schema initialized successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

@@ -10,16 +10,27 @@ def get_settings():
 @lru_cache()
 def get_redis_client():
     settings = get_settings()
-    return redis.Redis(
-        host=settings.redis_host,
-        port=settings.redis_port,
-        db=settings.redis_db
-    )
+    try:
+        client = redis.Redis(
+            host=settings.redis_host,
+            port=settings.redis_port,
+            db=settings.redis_db
+        )
+        # Test connection
+        client.ping()
+        return client
+    except:
+        return None
 
 @lru_cache()
 def get_malay2sql_service() -> Malay2SQLService:
     settings = get_settings()
-    redis_client = get_redis_client()
+    try:
+        redis_client = get_redis_client()
+    except:
+        # Fallback to no caching if Redis is unavailable
+        redis_client = None
+        
     return Malay2SQLService(
         openai_api_key=settings.openai_api_key,
         cache_client=redis_client
