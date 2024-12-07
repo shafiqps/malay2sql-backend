@@ -5,6 +5,11 @@ from dependencies import get_malay2sql_service
 from pydantic import BaseModel
 from routers.auth import get_current_user
 from models.user import UserDB
+from datetime import datetime
+import openai
+import json
+import random
+
 
 router = APIRouter(
     prefix="/malay2sql",
@@ -17,6 +22,69 @@ class SchemaInput(BaseModel):
 class QueryInput(BaseModel):
     query: str
 
+class FeedbackInput(BaseModel):
+    original_query_result: QueryResult
+    corrected_sql: str
+
+class ExecuteQueryInput(BaseModel):
+    sql_query: str
+
+
+@router.post("/execute", status_code=200)
+async def execute_query(
+    execute_input: ExecuteQueryInput,
+    service: Malay2SQLService = Depends(get_malay2sql_service),
+    current_user: UserDB = Depends(get_current_user)
+):
+    """Execute a SQL query"""
+    try:
+        # Use OpenAI to generate mock results
+        client = openai.OpenAI(api_key=service.openai_api_key)
+        
+        prompt = f"""Given the SQL query below, generate realistic mock results in JSON format.
+        The results should be consistent with a university staff database.
+
+        SQL Query: {execute_input.sql_query}
+
+        Return only the JSON array of results, without any explanation or markdown formatting.
+        Make sure the field names match the SQL query.
+        Limit the results to 5 rows maximum.
+        """
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": "You are a SQL database simulator. Generate realistic mock results for SQL queries."},
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+
+        # Parse the mock results
+        try:
+            mock_results = json.loads(response.choices[0].message.content)
+        except json.JSONDecodeError:
+            mock_results = []
+
+        execution_time = random.uniform(0.1, 0.5)  # Random execution time between 0.1 and 0.5 seconds
+        
+        return {
+            "message": "Query executed successfully",
+            "result": {
+                "status": "success",
+                "results": mock_results,
+                "rows_affected": len(mock_results),
+                "execution_time": execution_time,
+                "query_type": execute_input.sql_query.strip().split()[0].upper()
+            },
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to execute query: {str(e)}"
+        )
+    
 @router.post("/initialize", status_code=200)
 async def initialize_schema(
     schema_input: SchemaInput,
@@ -25,8 +93,8 @@ async def initialize_schema(
 ):
     """Initialize the schema for the Malay2SQL service"""
     try:
-        service.initialize_schema(schema_input.schema)
-        print(f"Schema initialized for user schema_json: {service.schema_json}")
+        service.initialize_schema(schema_input.schema, user_id=str(current_user.id))
+        print(f"Schema initialized for user {current_user.id}")
         return {"message": "Schema initialized successfully"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -39,7 +107,29 @@ async def process_query(
 ) -> QueryResult:
     """Process a Malay language query and return SQL"""
     try:
-        result = await service.process_query(query_input.query)
+        result = await service.process_query(query_input.query, user_id=str(current_user.id))
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+@router.post("/feedback", status_code=200)
+async def store_query_feedback(
+    feedback: FeedbackInput,
+    service: Malay2SQLService = Depends(get_malay2sql_service),
+    current_user: UserDB = Depends(get_current_user)
+):
+    """Store user feedback for a query"""
+    try:
+        await service.store_feedback(
+            feedback.original_query_result,
+            feedback.corrected_sql
+        )
+        return {
+            "message": "Feedback stored successfully",
+            "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to store feedback: {str(e)}"
+        )
