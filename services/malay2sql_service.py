@@ -169,12 +169,12 @@ class Malay2SQLService:
     def _initialize_models(self):
         """Initialize translation model"""
         print("Loading translation model and tokenizer...")
-        self.tokenizer = AutoTokenizer.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2')
-        self.translation_model = T5ForConditionalGeneration.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2')
+        self.tokenizer = AutoTokenizer.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2.1')
+        self.translation_model = T5ForConditionalGeneration.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2.1')
         self.translation_model = self.translation_model.to(self.device)
         print(f"Model loaded. Parameters: {self.translation_model.num_parameters():,}")
 
-    def initialize_schema(self, schema_json: Dict[str, Any], user_id: str):
+    async def initialize_schema(self, schema_json: Dict[str, Any], user_id: str):
         """Initialize schema index for specific user"""
         self.schema_index.build_index(schema_json, user_id)
         self.user_schemas[user_id] = schema_json
@@ -444,56 +444,15 @@ class Malay2SQLService:
         self.logger.info(f"Initial SQL query: {sql_query}")
         
         # Generate multiple variations if needed
-        variations = [sql_query]  # In future, could generate multiple variations
+        variations = [sql_query]
         self.logger.info(f"Generated {len(variations)} query variations")
         
-        # Rerank queries using both methods
+        # Rerank queries using golden query comparison
         self.logger.info("Reranking queries")
+        ranked_queries = self.golden_query.rerank_queries(variations)
+        self.logger.info(f"Queries ranked, best similarity score: {ranked_queries[0][1] if ranked_queries else 'N/A'}")
         
-        # 1. Golden query comparison
-        golden_ranked = self.golden_query.rerank_queries(variations)
-        self.logger.info(f"Golden query similarity score: {golden_ranked[0][1] if golden_ranked else 'N/A'}")
-        
-        # 2. Use reranker model
-        try:
-            with torch.no_grad():
-                pairs = [[english_query, query] for query in variations]
-                
-                # Prepare inputs for reranker
-                inputs = self.reranker_tokenizer(
-                    pairs,
-                    padding=True,
-                    truncation=True,
-                    return_tensors='pt',
-                    max_length=512
-                ).to(self.device)
-                
-                outputs = self.reranker_model(**inputs)
-                scores = outputs.logits[:, self.yes_loc].cpu().numpy()
-                
-                # Combine with queries
-                reranker_ranked = list(zip(variations, scores))
-                reranker_ranked.sort(key=lambda x: x[1], reverse=True)
-                
-                self.logger.info(f"Reranker model score: {reranker_ranked[0][1] if reranker_ranked else 'N/A'}")
-                
-                # Combine both rankings (simple average of normalized scores)
-                final_scores = []
-                for query in variations:
-                    golden_score = next(score for q, score in golden_ranked if q == query)
-                    reranker_score = next(score for q, score in reranker_ranked if q == query)
-                    # Normalize and average scores
-                    combined_score = (golden_score + reranker_score) / 2
-                    final_scores.append((query, combined_score))
-                
-                final_scores.sort(key=lambda x: x[1], reverse=True)
-                self.logger.info(f"Combined ranking score: {final_scores[0][1]}")
-                
-                final_query = final_scores[0][0]
-                
-        except Exception as e:
-            self.logger.error(f"Error in reranking, falling back to golden query ranking: {str(e)}")
-            final_query = golden_ranked[0][0] if golden_ranked else sql_query
-        
+        # Return the highest-ranked query
+        final_query = ranked_queries[0][0] if ranked_queries else sql_query
         self.logger.info(f"Final selected query: {final_query}")
         return final_query

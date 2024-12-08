@@ -43,6 +43,7 @@ nvidia-nvjitlink-cu12==12.4.127
 nvidia-nvtx-cu12==12.4.127
 openai==1.53.0
 packaging==24.1
+pandas==2.2.3
 passlib==1.7.4
 pillow==11.0.0
 pluggy==1.5.0
@@ -53,9 +54,11 @@ pydantic-settings==2.6.1
 pydantic_core==2.23.4
 pytest==8.3.4
 pytest-asyncio==0.24.0
+python-dateutil==2.9.0.post0
 python-dotenv==1.0.1
 python-jose==3.3.0
 python-multipart==0.0.17
+pytz==2024.2
 PyYAML==6.0.2
 redis==5.2.0
 regex==2024.9.11
@@ -78,5 +81,6 @@ tqdm==4.66.6
 transformers==4.46.1
 triton==3.1.0
 typing_extensions==4.12.2
+tzdata==2024.2
 urllib3==2.2.3
 uvicorn==0.32.0

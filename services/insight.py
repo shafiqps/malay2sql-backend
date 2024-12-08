@@ -1,14 +1,16 @@
 import pandas as pd
-from sqlalchemy import create_engine, text
-import openai
-from malay2sql_service import Malay2SQLService  # Import the Malay2SQLService class
+from sqlalchemy import create_engine, text, MetaData, Table, Column, Integer, String, Float, DateTime
+from services.malay2sql_service import Malay2SQLService
 from typing import Dict, Any
 import logging
+import datetime
 
 class Insight:
-    def __init__(self, db_url: str, openai_api_key: str):
-        self.engine = create_engine(db_url)
-        self.malay2sql_service = Malay2SQLService(openai_api_key)  # Initialize Malay2SQLService
+    def __init__(self, db_url: str, openai_api_key: str, cache_client=None):
+        # Use SQLite for testing if no db_url is provided
+        self.db_url = db_url or 'sqlite:///test.db'
+        self.engine = create_engine(self.db_url)
+        self.malay2sql_service = Malay2SQLService(openai_api_key, cache_client)
         self.logger = logging.getLogger(__name__)
         self.logger.setLevel(logging.DEBUG)
         handler = logging.StreamHandler()
@@ -16,49 +18,160 @@ class Insight:
         formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
         handler.setFormatter(formatter)
         self.logger.addHandler(handler)
+        
+        # Create test data if using SQLite
+        if 'sqlite' in self.db_url:
+            self._create_test_data()
+
+    def _create_test_data(self):
+        """Create test database and populate with sample data"""
+        metadata = MetaData()
+        
+        # Define faculty table
+        faculty = Table('faculty', metadata,
+            Column('id', Integer, primary_key=True),
+            Column('name', String),
+            Column('age', Integer),
+            Column('born_state', String),
+            Column('department_id', Integer),
+            Column('join_date', DateTime),
+            Column('salary', Float)
+        )
+        
+        # Create tables
+        metadata.create_all(self.engine)
+        
+        # Sample data
+        test_data = [
+            {
+                'id': 1,
+                'name': 'Dr. John Smith',
+                'age': 45,
+                'born_state': 'Texas',
+                'department_id': 1,
+                'join_date': datetime.datetime(2010, 1, 15),
+                'salary': 95000.00
+            },
+            {
+                'id': 2,
+                'name': 'Dr. Maria Garcia',
+                'age': 38,
+                'born_state': 'California',
+                'department_id': 2,
+                'join_date': datetime.datetime(2015, 6, 1),
+                'salary': 88000.00
+            },
+            {
+                'id': 3,
+                'name': 'Dr. Robert Chen',
+                'age': 52,
+                'born_state': 'New York',
+                'department_id': 1,
+                'join_date': datetime.datetime(2005, 9, 30),
+                'salary': 105000.00
+            },
+            {
+                'id': 4,
+                'name': 'Dr. Sarah Johnson',
+                'age': 41,
+                'born_state': 'Texas',
+                'department_id': 3,
+                'join_date': datetime.datetime(2012, 3, 15),
+                'salary': 92000.00
+            },
+            {
+                'id': 5,
+                'name': 'Dr. James Wilson',
+                'age': 35,
+                'born_state': 'California',
+                'department_id': 2,
+                'join_date': datetime.datetime(2018, 8, 1),
+                'salary': 85000.00
+            }
+        ]
+        
+        # Insert test data
+        with self.engine.connect() as conn:
+            # Delete existing data
+            conn.execute(text("DELETE FROM faculty"))
+            
+            # Insert new data
+            for record in test_data:
+                insert_query = text("""
+                    INSERT INTO faculty (id, name, age, born_state, department_id, join_date, salary)
+                    VALUES (:id, :name, :age, :born_state, :department_id, :join_date, :salary)
+                """)
+                conn.execute(insert_query, record)
+            conn.commit()
+        
+        self.logger.info("Test data created successfully")
+
+    async def initialize_schema(self):
+        """Initialize schema for the default user"""
+        try:
+            schema = self.get_schema_json()
+            # Initialize schema index
+            self.malay2sql_service.schema_index.build_index(schema, "default_user")
+            self.malay2sql_service.user_schemas["default_user"] = schema
+            self.logger.info("Schema initialized for default user")
+        except Exception as e:
+            self.logger.error(f"Error initializing schema: {e}")
+            raise
 
     async def get_top_trends(self) -> pd.DataFrame:
         prompt = """
-        Generate an SQL query to find the top 5 most interesting trends in the data.
-        The query should identify trends based on significant changes in data patterns, such as:
-        - Count the total number of faculty members.
-        - List the names and ages of all faculty members.
-        - Retrieve the oldest faculty member's details.
-        - Find faculty members born in a specific state (e.g., Texas).
-        - Count faculty members in each state.
-        - Identify faculty members whose age is above the average.
-        - List all distinct states where faculty were born.
-        - Show faculty details sorted by name alphabetically.
-        - Count how many faculty members are from a specific state (e.g., California).
-        - Display the youngest faculty member.
-        - Count the total number of departments.
-        - List all department names and their budgets.
-        - Find the department with the highest budget.
-        - Calculate the average budget for all departments.
-        - Identify departments with a budget below a specified value (e.g., $10 billion).
-        - Retrieve details of departments ranked in the top 5.
-        - Show all departments created before a specific year (e.g., 2000).
-        - Find the year with the most department creations.
-        - Display the number of employees in each department.
-        - Find departments with more than 100 employees.
-        - List all department heads and their departments.
-        - Identify departments with temporary acting heads.
-        - Find all departments led by heads born in a specific state.
-        - Count the number of departments managed by each head.
-        - Retrieve the list of acting heads and their tenure duration.
-        - Compute the average age of faculty members.
-        - Find states with the highest number of faculty members.
+        Generate a single SQL query to find the most interesting trend in the data.
+        Choose one of these analyses:
+        - Count the total number of faculty members by state and show their average salary
+        - Find the oldest and youngest faculty members with their details
+        - Show faculty members whose age is above average, ordered by salary
+        - List the states with the most faculty members and their average age
+        - Show the salary distribution across different age groups
         """
         try:
-            query = self.malay2sql_service.generate_sql(prompt)
+            # Make sure schema is initialized
+            await self.initialize_schema()
+            
+            # First translate the prompt to English if it's in Malay
+            english_translation = self.malay2sql_service.translate_malay_to_english(prompt)
+            
+            # Get schema for the user
+            schema = self.get_schema_json()
+            schema_sql = self.create_sql_schema(schema)
+            
+            # Get relevant columns
+            relevant_columns = await self.malay2sql_service.get_relevant_columns(english_translation, "default_user")
+            
+            # Generate SQL query using the Malay2SQLService
+            query = await self.malay2sql_service.generate_sql_query(
+                english_translation,
+                schema_sql,
+                relevant_columns
+            )
+            
             self.logger.debug(f"Generated SQL query: {query}")
+            
+            # Split multiple statements and execute only the first one
+            statements = [stmt.strip() for stmt in query.split(';') if stmt.strip()]
+            if not statements:
+                return pd.DataFrame()
+            
+            # Execute the first (or only) query
+            first_query = statements[0]
+            self.logger.debug(f"Executing query: {first_query}")
+            
             with self.engine.connect() as connection:
-                result = connection.execute(text(query))
+                result = connection.execute(text(first_query))
                 df = pd.DataFrame(result.fetchall(), columns=result.keys())
+            
+            if len(statements) > 1:
+                self.logger.warning(f"Multiple statements detected. Only executed the first one: {first_query}")
+            
             return df
+            
         except Exception as e:
             self.logger.error(f"Error in get_top_trends: {e}")
-            return pd.DataFrame()
+            raise
 
     def create_sql_schema(self, schema_json: Dict[str, Any]) -> str:
         """Convert JSON schema to SQL CREATE TABLE statement"""
@@ -85,15 +198,17 @@ class Insight:
         return create_statement
 
     def get_schema_json(self) -> Dict[str, Any]:
-        """Retrieve the schema JSON (this is a placeholder, implement as needed)"""
-        # Implement this method to return the schema JSON
+        """Retrieve the schema JSON"""
         return {
-            "table_name": "head",
+            "table_name": "faculty",
             "columns": {
+                "id": {"data_type": "Int64", "description": "Faculty member ID"},
                 "name": {"data_type": "String", "description": "Name of the faculty member"},
                 "age": {"data_type": "Int64", "description": "Age of the faculty member"},
                 "born_state": {"data_type": "String", "description": "State where the faculty member was born"},
-                "department_id": {"data_type": "Int64", "description": "ID of the department the faculty member belongs to"}
+                "department_id": {"data_type": "Int64", "description": "ID of the department"},
+                "join_date": {"data_type": "DateTime64(3)", "description": "Date when faculty member joined"},
+                "salary": {"data_type": "Float64", "description": "Faculty member's salary"}
             }
         }
 
