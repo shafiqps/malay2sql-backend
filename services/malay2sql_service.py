@@ -173,8 +173,9 @@ class Malay2SQLService:
         self.translation_model = T5ForConditionalGeneration.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2.1')
         self.translation_model = self.translation_model.to(self.device)
         print(f"Model loaded. Parameters: {self.translation_model.num_parameters():,}")
+        
 
-    async def initialize_schema(self, schema_json: Dict[str, Any], user_id: str):
+    def initialize_schema(self, schema_json: Dict[str, Any], user_id: str):
         """Initialize schema index for specific user"""
         self.schema_index.build_index(schema_json, user_id)
         self.user_schemas[user_id] = schema_json
