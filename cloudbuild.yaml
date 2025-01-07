@@ -37,6 +37,8 @@ steps:
     - '--no-cpu-throttling'
     - '--max-instances'
     - '1'
+    - '--port'
+    - '8080'
     - '--set-env-vars'
     - 'OPENAI_API_KEY=${_OPENAI_API_KEY},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},REDIS_DB=${_REDIS_DB}'
 
