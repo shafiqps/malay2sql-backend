@@ -11,6 +11,7 @@ steps:
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
+    - 'beta'  # Changed to beta
     - 'run'
     - 'deploy'
     - 'malay2sql'
@@ -25,8 +26,9 @@ steps:
     - '8Gi'
     - '--cpu'
     - '4'
-    - '--gpu'
-    - '--accelerator=count=1,type=nvidia-tesla-t4'
+    - '--gpu'  # GPU flags now supported in beta
+    - '--accelerator'
+    - 'count=1,type=nvidia-tesla-t4'
     - '--set-env-vars'
     - 'OPENAI_API_KEY=${_OPENAI_API_KEY},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},REDIS_DB=${_REDIS_DB}'
 
