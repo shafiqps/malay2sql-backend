@@ -33,7 +33,7 @@ steps:
     - '--gpu'
     - '1'
     - '--gpu-type'
-    - 'nvidia-t4'
+    - 'nvidia-l4'
     - '--no-cpu-throttling'
     - '--max-instances'
     - '1'
