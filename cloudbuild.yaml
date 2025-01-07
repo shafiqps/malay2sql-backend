@@ -1,15 +1,4 @@
 steps:
-  # Decrypt secrets if needed
-  - name: 'gcr.io/cloud-builders/gcloud'
-    args:
-      - kms
-      - decrypt
-      - --ciphertext-file=.env.prod.enc
-      - --plaintext-file=.env.prod
-      - --location=global
-      - --keyring=my-keyring
-      - --key=my-key
-
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-t', 'gcr.io/$PROJECT_ID/malay2sql', '.']
@@ -39,9 +28,16 @@ steps:
     - '--gpu'
     - '--accelerator=count=1,type=nvidia-tesla-t4'
     - '--set-env-vars'
-    - 'REDIS_HOST=redis,REDIS_PORT=6379,REDIS_DB=0'
-    - '--set-secrets'
-    - 'OPENAI_API_KEY=openai-api-key:latest'
+    - 'OPENAI_API_KEY=${_OPENAI_API_KEY},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},REDIS_DB=${_REDIS_DB}'
 
 images:
   - 'gcr.io/$PROJECT_ID/malay2sql'
+
+substitutions:
+  _OPENAI_API_KEY: ''
+  _REDIS_HOST: 'redis'
+  _REDIS_PORT: '6379'
+  _REDIS_DB: '0'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
