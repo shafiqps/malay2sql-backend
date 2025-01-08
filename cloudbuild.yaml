@@ -1,7 +1,16 @@
 steps:
   # Build the container image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/malay2sql', '.']
+    args: 
+      - 'build'
+      - '-t'
+      - 'gcr.io/$PROJECT_ID/malay2sql'
+      - '--memory'
+      - '32g'  # Increase Docker build memory
+      - '--memory-swap'
+      - '32g'
+      - '.'
+    timeout: '3600s'
 
   # Push the container image
   - name: 'gcr.io/cloud-builders/docker'
@@ -52,4 +61,6 @@ substitutions:
   _DB_PASSWORD: ''
 
 options:
+  machineType: 'N1_HIGHCPU_32'  # Use a machine with more memory
   logging: CLOUD_LOGGING_ONLY
+  timeout: '3600s'
