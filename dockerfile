@@ -28,8 +28,16 @@ RUN python3 -c "from transformers import AutoTokenizer, T5ForConditionalGenerati
     tokenizer.save_pretrained('/app/models/translator'); \
     model.save_pretrained('/app/models/translator')"
 
+# Copy Alembic files
+COPY alembic alembic/
+COPY alembic.ini .
+
 # Copy application code
 COPY . .
+
+# Copy and set up entrypoint
+COPY entrypoint.sh .
+RUN chmod +x entrypoint.sh
 
 ENV PYTHONPATH=/app
 ENV MODEL_PATH=/app/models/translator
@@ -37,4 +45,4 @@ ENV PORT=8080
 
 EXPOSE 8080
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080"]
+ENTRYPOINT ["./entrypoint.sh"]

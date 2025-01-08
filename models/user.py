@@ -1,15 +1,15 @@
-from sqlalchemy import Column, Integer, String
-from pydantic import BaseModel
+from sqlalchemy import Column, Integer, String, Text
+from pydantic import BaseModel, EmailStr
 from database import Base
 
 class UserDB(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
-    first_name = Column(String)
-    last_name = Column(String)
+    email = Column(String(255), unique=True, index=True)
+    hashed_password = Column(Text)
+    first_name = Column(String(100))
+    last_name = Column(String(100))
 
 class UserCreate(BaseModel):
     email: str

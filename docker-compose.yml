@@ -10,6 +10,7 @@ services:
     environment:
       - PYTHONPATH=/app
       - MODEL_PATH=/app/models/translator
+      - DATABASE_URL=postgresql://malay2sql-user:password@db:5432/malay2sql
     deploy:
       resources:
         reservations:
@@ -19,6 +20,7 @@ services:
               capabilities: [gpu]
     depends_on:
       - redis
+      - db
 
   redis:
     image: redis:6
@@ -27,5 +29,17 @@ services:
     volumes:
       - redis_data:/data
 
+  db:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=malay2sql-user
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_DB=malay2sql
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
 volumes:
   redis_data:
+  postgres_data:
