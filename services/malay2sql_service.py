@@ -12,6 +12,7 @@ import json
 from collections import defaultdict
 from models.feedback import Feedback
 from database import SessionLocal
+import os
 import uuid
 
 @dataclass
@@ -122,42 +123,54 @@ class Malay2SQLService:
         self.openai_api_key = openai_api_key
         openai.api_key = openai_api_key
         
-        # Translation model setup
+        # Device setup
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.logger.info(f"Using device: {self.device}")
         
-        # Initialize models
-        self._initialize_models()
-        
-        # Schema indexing setup
-        self.schema_index = SchemaIndex()
-        
-        # Cache and logging setup
-        self.cache_client = cache_client
-        self.db = SessionLocal()
-        self.logger.info("Loading feedback history from database")
-        self.feedback_history = self._load_feedback_history()
-        self.logger.info(f"Loaded {len(self.feedback_history)} feedback entries")
-        self.user_schemas = {}
-
-        # Initialize GoldenQuery
-        golden_query_path = "data/golden_query.sql"
         try:
+            # Initialize models
+            self._initialize_models()
+            self.logger.info("Translation model initialized successfully")
+            
+            # Schema indexing setup
+            self.schema_index = SchemaIndex()
+            
+            # Initialize GoldenQuery
+            golden_query_path = "data/golden_query.sql"
             self.golden_query = GoldenQuery(self.schema_index, golden_query_path)
+            self.logger.info("GoldenQuery initialized successfully")
+            
+            # Initialize reranker
+            self._initialize_reranker()
+            self.logger.info("Reranker initialized successfully")
+            
+            # Cache and logging setup
+            self.cache_client = cache_client
+            self.db = SessionLocal()
+            self.logger.info("Loading feedback history from database")
+            self.feedback_history = self._load_feedback_history()
+            self.logger.info(f"Loaded {len(self.feedback_history)} feedback entries")
+            self.user_schemas = {}
+            
+            self.logger.info("Malay2SQLService initialization completed successfully")
+            
         except Exception as e:
-            self.logger.error(f"Failed to initialize GoldenQuery: {e}")
+            self.logger.error(f"Failed to initialize Malay2SQLService: {str(e)}")
             raise
-
-        # Initialize reranker model
-        self._initialize_reranker()
-        self.logger.info("Malay2SQLService initialization completed")
 
     def _initialize_reranker(self):
         """Initialize reranker model and tokenizer"""
         self.logger.info("Initializing reranker model and tokenizer")
         try:
-            self.reranker_tokenizer = AutoTokenizer.from_pretrained('BAAI/bge-reranker-v2-gemma')
-            self.reranker_model = AutoModelForCausalLM.from_pretrained('BAAI/bge-reranker-v2-gemma')
+            reranker_path = os.getenv('RERANKER_PATH', '/app/models/reranker')
+            self.reranker_tokenizer = AutoTokenizer.from_pretrained(
+                reranker_path,
+                local_files_only=True
+            )
+            self.reranker_model = AutoModelForCausalLM.from_pretrained(
+                reranker_path,
+                local_files_only=True
+            )
             self.yes_loc = self.reranker_tokenizer('Yes', add_special_tokens=False)['input_ids'][0]
             self.reranker_model = self.reranker_model.to(self.device)
             self.reranker_model.eval()
@@ -168,11 +181,33 @@ class Malay2SQLService:
 
     def _initialize_models(self):
         """Initialize translation model"""
-        print("Loading translation model and tokenizer...")
-        self.tokenizer = AutoTokenizer.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2.1')
-        self.translation_model = T5ForConditionalGeneration.from_pretrained('mesolitica/nanot5-small-malaysian-translation-v2.1')
-        self.translation_model = self.translation_model.to(self.device)
-        print(f"Model loaded. Parameters: {self.translation_model.num_parameters():,}")
+        self.logger.info("Starting translation model initialization...")
+        try:
+            model_path = os.getenv('MODEL_PATH', '/app/models/translator')
+            self.logger.info(f"Loading translation model and tokenizer from {model_path}")
+            
+            self.tokenizer = AutoTokenizer.from_pretrained(
+                model_path,
+                local_files_only=True  # Use local files only
+            )
+            
+            self.translation_model = T5ForConditionalGeneration.from_pretrained(
+                model_path,
+                local_files_only=True  # Use local files only
+            )
+            
+            self.translation_model = self.translation_model.to(self.device)
+            self.logger.info(f"Translation model loaded. Parameters: {self.translation_model.num_parameters():,}")
+            
+            # Log device and memory info
+            self.logger.info(f"Using device: {self.device}")
+            if torch.cuda.is_available():
+                self.logger.info(f"GPU Memory allocated: {torch.cuda.memory_allocated()/1e9:.2f} GB")
+                self.logger.info(f"GPU Memory cached: {torch.cuda.memory_reserved()/1e9:.2f} GB")
+                
+        except Exception as e:
+            self.logger.error(f"Failed to initialize translation model: {str(e)}")
+            raise
         
 
     def initialize_schema(self, schema_json: Dict[str, Any], user_id: str):

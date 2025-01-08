@@ -27,7 +27,7 @@ steps:
     - '--cpu'
     - '4'
     - '--timeout'
-    - '600s'
+    - '1200s'
     - '--execution-environment'
     - 'gen2'
     - '--gpu'

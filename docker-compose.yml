@@ -10,7 +10,9 @@ services:
     environment:
       - PYTHONPATH=/app
       - MODEL_PATH=/app/models/translator
-      - DATABASE_URL=postgresql://malay2sql-user:password@db:5432/malay2sql
+      - RERANKER_PATH=/app/models/reranker
+    volumes:
+      - ./models:/app/models  
     deploy:
       resources:
         reservations:

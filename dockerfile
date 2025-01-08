@@ -20,13 +20,23 @@ RUN pip3 install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --index-url https:
 RUN pip3 install transformers sentence-transformers
 
 # Create model directory and download models at build time
-RUN mkdir -p /app/models
+RUN mkdir -p /app/models/translator /app/models/reranker
+
+# Download translation model
 RUN python3 -c "from transformers import AutoTokenizer, T5ForConditionalGeneration; \
     model_name='mesolitica/nanot5-small-malaysian-translation-v2.1'; \
     tokenizer = AutoTokenizer.from_pretrained(model_name); \
     model = T5ForConditionalGeneration.from_pretrained(model_name); \
     tokenizer.save_pretrained('/app/models/translator'); \
     model.save_pretrained('/app/models/translator')"
+
+# Download reranker model
+RUN python3 -c "from transformers import AutoTokenizer, AutoModelForCausalLM; \
+    reranker_name='BAAI/bge-reranker-v2-gemma'; \
+    tokenizer = AutoTokenizer.from_pretrained(reranker_name); \
+    model = AutoModelForCausalLM.from_pretrained(reranker_name); \
+    tokenizer.save_pretrained('/app/models/reranker'); \
+    model.save_pretrained('/app/models/reranker')"
 
 # Copy Alembic files
 COPY alembic alembic/
@@ -41,6 +51,7 @@ RUN chmod +x entrypoint.sh
 
 ENV PYTHONPATH=/app
 ENV MODEL_PATH=/app/models/translator
+ENV RERANKER_PATH=/app/models/reranker
 ENV PORT=8080
 
 EXPOSE 8080
