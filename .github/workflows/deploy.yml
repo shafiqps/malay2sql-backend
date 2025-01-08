@@ -32,6 +32,7 @@ jobs:
     - name: Create env file
       run: |
         echo "OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}" > .env.prod
+        echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env.prod
         echo "REDIS_HOST=redis" >> .env.prod
         echo "REDIS_PORT=6379" >> .env.prod
         echo "REDIS_DB=0" >> .env.prod
@@ -39,6 +40,7 @@ jobs:
     - name: Deploy to Cloud Run
       env:
         OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
       run: |
         gcloud builds submit --config cloudbuild.yaml \
-          --substitutions=_OPENAI_API_KEY="$OPENAI_API_KEY",_REDIS_HOST="redis",_REDIS_PORT="6379",_REDIS_DB="0"
+          --substitutions=_OPENAI_API_KEY="$OPENAI_API_KEY",_REDIS_HOST="redis",_REDIS_PORT="6379",_REDIS_DB="0",_DB_PASSWORD="$DB_PASSWORD"
