@@ -10,6 +10,7 @@ class UserDB(Base):
     hashed_password = Column(Text)
     first_name = Column(String(100))
     last_name = Column(String(100))
+    profile_picture_url = Column(String(255), nullable=True) 
 
 class UserCreate(BaseModel):
     email: str
@@ -26,6 +27,7 @@ class UserResponse(BaseModel):
     email: str
     first_name: str
     last_name: str
+    profile_picture_url: str | None = None 
 
     class Config:
-        orm_mode = True
+        from_attributes = True

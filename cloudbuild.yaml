@@ -6,7 +6,7 @@ steps:
       - '-t'
       - 'gcr.io/$PROJECT_ID/malay2sql'
       - '--memory'
-      - '32g'  # Increase Docker build memory
+      - '32g' 
       - '--memory-swap'
       - '32g'
       - '.'
@@ -49,7 +49,7 @@ steps:
     - '--port'
     - '8080'
     - '--set-env-vars'
-    - 'OPENAI_API_KEY=${_OPENAI_API_KEY},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},REDIS_DB=${_REDIS_DB},DATABASE_URL=postgresql://malay2sql-user:${_DB_PASSWORD}@localhost/malay2sql?host=/cloudsql/${PROJECT_ID}:asia-southeast1:malay2sql-db'
+    - 'OPENAI_API_KEY=${_OPENAI_API_KEY},REDIS_HOST=${_REDIS_HOST},REDIS_PORT=${_REDIS_PORT},REDIS_DB=${_REDIS_DB},DATABASE_URL=postgresql://malay2sql-user:${_DB_PASSWORD}@localhost/malay2sql?host=/cloudsql/${PROJECT_ID}:asia-southeast1:malay2sql-db,BUCKET_NAME=${_BUCKET_NAME}'
     - '--set-cloudsql-instances'
     - '${PROJECT_ID}:asia-southeast1:malay2sql-db'
 
@@ -59,7 +59,8 @@ substitutions:
   _REDIS_PORT: '6379'
   _REDIS_DB: '0'
   _DB_PASSWORD: ''
+  _BUCKET_NAME: 'malay2sql-bucket'
 
 options:
-  machineType: 'N1_HIGHCPU_32'  # Use a machine with more memory
+  machineType: 'N1_HIGHCPU_32' 
   logging: CLOUD_LOGGING_ONLY
