@@ -327,7 +327,7 @@ class Malay2SQLService:
         client = openai.OpenAI(api_key=self.openai_api_key)
         print(prompt)
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="gpt-4o",
             messages=[
                 {"role": "system", "content": "You are a SQL expert. Generate precise SQL queries focusing on the relevant columns provided. Return only the raw SQL query without markdown formatting or backticks."},
                 {"role": "user", "content": prompt}

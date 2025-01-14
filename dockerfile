@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
 
 # Copy requirements first for better caching
 COPY requirements.txt .
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN pip3 install --no-cache-dir --timeout 1000 -r requirements.txt
 
 # Install PyTorch and torchvision with matching CUDA versions
 RUN pip3 install torch==2.0.1+cu118 torchvision==0.15.2+cu118 --index-url https://download.pytorch.org/whl/cu118
