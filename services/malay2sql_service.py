@@ -301,26 +301,28 @@ class Malay2SQLService:
         # Get relevant feedback examples
         feedback_examples = self._get_relevant_feedback(english_query)
         feedback_context = ""
-        
         if feedback_examples:
-            feedback_context = "\nHere are some example corrections from previous similar queries:\n"
+            feedback_context = "\nIMPORTANT - Similar queries and their corrections from previous interactions:\n"
             for feedback in feedback_examples:
-                feedback_context += f"\nOriginal Query: {feedback.original_query.english_translation}"
-                feedback_context += f"\nInitial SQL: {feedback.original_query.sql_query}"
-                feedback_context += f"\nCorrected SQL: {feedback.corrected_sql}\n"
-        
+                feedback_context += f"\n1. When asked: {feedback.original_query.english_translation}"
+                feedback_context += f"\n   Initially generated: {feedback.original_query.sql_query}"
+                feedback_context += f"\n   Correct version: {feedback.corrected_sql}"
+                feedback_context += f"\n   Please follow this correction pattern if applicable.\n"
+
         prompt = f"""Given the following database schema and relevant columns:
 
     Schema:
     {schema}
 
+    {feedback_context}
+
     Relevant columns for this query:
     {columns_context}
-    {feedback_context}
 
     Generate an SQL query for the following request:
     {english_query}
 
+    If any of the previous corrections are similar to this case, ALWAYS prioritize following their patterns.
     Return only the raw SQL query without markdown formatting or backticks.
     """
         
